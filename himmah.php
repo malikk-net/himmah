@@ -79,7 +79,7 @@ if (file_exists(HIMMAH_PLUGIN_DIR . 'vendor/autoload.php')) {
 }
 
 /**
- * دالة التفعيل الآمنة
+ * دالة التفعيل الفاحصة لكشف الملف المسبب للخطأ فوراً
  */
 function activate_himmah_plugin() {
     try {
@@ -87,23 +87,40 @@ function activate_himmah_plugin() {
             require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         }
 
-        $installer_class = 'MalikK\\Himmah\\Database\\Installer';
-        if (class_exists($installer_class)) {
-            $installer_class::activate();
+        // قائمة الفئات المطلوبة للتأكد من تحميلها بالترتيب
+        $required_classes = [
+            'MalikK\\Himmah\\Database\\Installer',
+            'MalikK\\Himmah\\Core\\Plugin',
+            'MalikK\\Himmah\\Domain\\PostTypes',
+            'MalikK\\Himmah\\Rest\\ActivityController',
+            'MalikK\\Himmah\\Blocks\\DashboardBlock',
+            'MalikK\\Himmah\\Blocks\\ChallengeListBlock',
+        ];
+
+        foreach ($required_classes as $class_name) {
+            if (!class_exists($class_name)) {
+                wp_die(
+                    '<div style="direction:rtl; font-family:sans-serif; padding:20px; background:#fff; border:2px solid #ef4444; border-radius:8px;">' .
+                    '<h3 style="color:#dc2626; margin-top:0;">❌ فشل تحميل الفئة:</h3>' .
+                    '<p>لم يتمكن Autoloader من العثور على: <code>' . esc_html($class_name) . '</code></p>' .
+                    '<p>💡 <strong>الحل:</strong> تحقق من وجود الملف المخصص لهذه الفئة بداخل مجلد <code>src/</code> ومطابقة حالة الأحرف اسم الملف والمجلد.</p>' .
+                    '</div>'
+                );
+            }
         }
+
+        // تشغيل تثبيت قاعدة البيانات
+        \MalikK\Himmah\Database\Installer::activate();
+
     } catch (\Throwable $e) {
-        error_log('Himmah Activation Error: ' . $e->getMessage());
+        wp_die(
+            '<div style="direction:rtl; font-family:sans-serif; padding:20px; background:#fff; border:2px solid #ef4444; border-radius:8px;">' .
+            '<h3 style="color:#dc2626; margin-top:0;">🚨 حدث خطأ أثناء التفعيل:</h3>' .
+            '<p><strong>الرسالة:</strong> <code>' . esc_html($e->getMessage()) . '</code></p>' .
+            '<p><strong>الملف:</strong> <code>' . esc_html($e->getFile()) . '</code></p>' .
+            '<p><strong>السطر:</strong> <code>' . esc_html($e->getLine()) . '</code></p>' .
+            '</div>'
+        );
     }
 }
 register_activation_hook(__FILE__, 'activate_himmah_plugin');
-
-function deactivate_himmah_plugin() {
-    // خطط التنظيف إن وجدت
-}
-register_deactivation_hook(__FILE__, 'deactivate_himmah_plugin');
-
-add_action('plugins_loaded', function() {
-    if (class_exists('MalikK\\Himmah\\Core\\Plugin')) {
-        \MalikK\Himmah\Core\Plugin::init();
-    }
-});
