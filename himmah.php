@@ -16,6 +16,21 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// كاشف الأخطاء المباشر للإضافة (في حال وجود أي خطأ فادح)
+register_shutdown_function(function () {
+    $error = error_get_last();
+    if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        wp_die(
+            '<div style="direction:rtl; font-family:sans-serif; background:#fff; padding:20px; border:2px solid #ef4444; border-radius:8px;">' .
+            '<h3 style="color:#dc2626; margin-top:0;">🚨 تم كشف الخطأ الفادح:</h3>' .
+            '<p><strong>الرسالة:</strong> <code style="color:#b91c1c;">' . esc_html($error['message']) . '</code></p>' .
+            '<p><strong>الملف المسبب:</strong> <code>' . esc_html($error['file']) . '</code></p>' .
+            '<p><strong>رقم السطر:</strong> <code>' . esc_html($error['line']) . '</code></p>' .
+            '</div>'
+        );
+    }
+});
+
 define('HIMMAH_VERSION', '1.0.0');
 define('HIMMAH_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('HIMMAH_PLUGIN_URL', plugin_dir_url(__FILE__));
