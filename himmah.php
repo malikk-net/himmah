@@ -33,6 +33,19 @@ spl_autoload_register(function ($class) {
     }
 
     $relative_class = substr($class, $len);
+    $parts = explode('\\', $relative_class);
+    
+    // اسم الملف كما هو بملف PHP (مثال: ActivityController.php)
+    $filename = array_pop($parts) . '.php';
+
+    // 1. تجربة المسار بحسب حالة الأحرف الأصلية
+    $path_exact = $base_dir . (count($parts) ? implode('/', $parts) . '/' : '') . $filename;
+    if (file_exists($path_exact)) {
+        require_once $path_exact;
+        return;
+    }
+
+    $relative_class = substr($class, $len);
     
     // 1. تجربة المسار الأصلي كما هو
     $file = $base_dir . str_replace('\\', '/', $relative_class) . '.php';
