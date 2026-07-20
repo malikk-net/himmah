@@ -17,9 +17,16 @@ document.addEventListener('click', function (e) {
             })
         })
         .then(response => {
-            return response.json().then(data => {
+            return response.text().then(text => {
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (err) {
+                    console.error('Himmah Raw Server Response:', text);
+                    throw new Error('الخادم أرجع استجابة HTML (راجع وحدة التحكم F12 لمعرفة السبب التفصيلي).');
+                }
                 if (!response.ok) {
-                    throw new Error(data.message || 'Server returned status ' + response.status);
+                    throw new Error(data.message || 'Server error status ' + response.status);
                 }
                 return data;
             });
@@ -44,7 +51,7 @@ document.addEventListener('click', function (e) {
         })
         .catch(error => {
             console.error('Himmah Error:', error);
-            alert(error.message || 'حدث خطأ في الاتصال بالخادم.');
+            alert(error.message);
             btn.disabled = false;
             btn.textContent = 'إنجاز التحدي';
         });
