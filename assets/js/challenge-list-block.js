@@ -1,59 +1,53 @@
-document.addEventListener('click', function (e) {
-    if (e.target && e.target.classList.contains('himmah-complete-btn')) {
-        const btn = e.target;
-        const challengeId = btn.getAttribute('data-challenge-id');
-        
-        btn.disabled = true;
-        btn.textContent = 'جاري التسجيل...';
+document.addEventListener('DOMContentLoaded', function () {
+    // استخدام querySelectorAll للتعامل مع جميع أزرار التحديات في القائمة
+    document.querySelectorAll('.himmah-record-btn').forEach(button => {
+        button.addEventListener('click', function (e) {
+            e.preventDefault();
 
-        fetch(himmahData.root + 'log-activity', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-WP-Nonce': himmahData.nonce
-            },
-            body: JSON.stringify({
-                challenge_id: challengeId
+            const currentButton = this;
+            const challengeId = currentButton.dataset.challengeId;
+
+            if (!challengeId) return;
+
+            currentButton.textContent = 'جاري التسجيل...';
+            currentButton.disabled = true;
+
+            // التأكد من توفر المتغيرات العامة (restUrl و nonce) عبر wp_localize_script
+            const restUrl = typeof himmahData !== 'undefined' ? himmahData.restUrl : '/wp-json/himmah/v1/';
+            const nonce = typeof himmahData !== 'undefined' ? himmahData.nonce : '';
+
+            fetch(restUrl + 'log-activity', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-WP-Nonce': nonce
+                },
+                body: JSON.stringify({ challenge_id: challengeId })
             })
-        })
-        .then(response => {
-            return response.text().then(text => {
-                let data;
+            .then(response => response.text())
+            .then(text => {
                 try {
-                    data = JSON.parse(text);
-                } catch (err) {
-                    console.error('Himmah Raw Server Response:', text);
-                    throw new Error('الخادم أرجع استجابة HTML (راجع وحدة التحكم F12 لمعرفة السبب التفصيلي).');
-                }
-                if (!response.ok) {
-                    throw new Error(data.message || 'Server error status ' + response.status);
-                }
-                return data;
-            });
-        })
-        .then(data => {
-            if (data.success) {
-                btn.textContent = 'تم الإنجاز ✅';
-                btn.style.background = '#6b7280';
-                
-                // تحديث شارة النقاط في الصفحة فورياً
-                const pointsBadges = document.querySelectorAll('.himmah-points-badge');
-                pointsBadges.forEach(badge => {
-                    if (data.total_points !== undefined) {
-                        badge.textContent = data.total_points + ' نقطة';
+                    const data = JSON.parse(text);
+                    if (data.success) {
+                        currentButton.textContent = 'تم الإنجاز ✓';
+                    } else {
+                        alert('تنبيه: ' + (data.message || 'فشل التسجيل'));
+                        currentButton.textContent = 'تسجيل';
+                        currentButton.disabled = false;
                     }
-                });
-            } else {
-                alert('حدث خطأ: ' + (data.message || 'يرجى المحاولة لاحقاً.'));
-                btn.disabled = false;
-                btn.textContent = 'إنجاز التحدي';
-            }
-        })
-        .catch(error => {
-            console.error('Himmah Error:', error);
-            alert(error.message);
-            btn.disabled = false;
-            btn.textContent = 'إنجاز التحدي';
+                } catch (err) {
+                    console.error("استجابة الخادم ليست JSON صالحاً:", text);
+                    alert("حدث خطأ برمجياً في الخادم (راجع Console لمزيد من التفاصيل).");
+                    currentButton.textContent = 'تسجيل';
+                    currentButton.disabled.value = false;
+                    currentButton.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Fetch Error:', error);
+                currentButton.textContent = 'تسجيل';
+                currentButton.disabled = false;
+            });
         });
-    }
+    });
 });
