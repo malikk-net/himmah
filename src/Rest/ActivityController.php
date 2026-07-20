@@ -1,134 +1,100 @@
 <?php
 namespace MalikK\Himmah\Rest;
 
-/**
- * فئة التحكم بمؤشرات ومسارات الـ REST API لإضافة هِمّة
- */
-class ActivityController {
+use WP_REST_Controller;
+use WP_REST_Server;
+use WP_REST_Request;
 
-    public static function init() {
-        add_action('rest_api_init', [self::class, 'register_routes']);
-    }
+class ActivityController extends WP_REST_Controller {
 
-    public static function register_routes() {
-        $namespace = 'himmah/v1';
+    protected $namespace = 'himmah/v1';
 
-        register_rest_route($namespace, '/activities', [
-            [
-                'methods'             => 'GET',
-                'callback'            => [self::class, 'get_activities'],
-                'permission_callback' => '__return_true',
-            ],
-            [
-                'methods'             => 'POST',
-                'callback'            => [self::class, 'log_activity'],
-                'permission_callback' => function () {
-                    return is_user_logged_in();
-                },
-            ],
+    public function register_routes() {
+        // 1. مسار تسجيل الإنجاز وحساب النقاط الكلية (POST)
+        register_rest_route($this->namespace, '/log-activity', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [$this, 'log_activity'],
+            'permission_callback' => [$this, 'check_permission'],
+        ]);
+
+        // 2. مسار جلب النقاط والتحديات المنجزة اليوم فور تحفيز الشاشة (GET)
+        register_rest_route($this->namespace, '/user-stats', [
+            'methods'             => WP_REST_Server::READABLE,
+            'callback'            => [$this, 'get_user_stats'],
+            'permission_callback' => [$this, 'check_permission'],
         ]);
     }
 
-    public static function get_activities($request) {
-        $user_id = get_current_user_id();
-
-        if (!$user_id) {
-            return new \WP_REST_Response([
-                'success' => false,
-                'message' => 'يرجى تسجيل الدخول لعرض الأنشطة.'
-            ], 401);
-        }
-
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'himmah_user_activity';
-        $today = current_time('Y-m-d');
-
-        $activities = $wpdb->get_results(
-            $wpdb->prepare(
-                "SELECT * FROM {$table_name} WHERE user_id = %d AND DATE(created_at) = %s",
-                $user_id,
-                $today
-            )
-        );
-
-        $total_points = (int) get_user_meta($user_id, 'himmah_total_points', true);
-
-        return new \WP_REST_Response([
-            'success'      => true,
-            'user_id'      => $user_id,
-            'total_points' => $total_points,
-            'activities'   => $activities
-        ], 200);
+    public function check_permission() {
+        return is_user_logged_in();
     }
 
-    public static function log_activity($request) {
-        $user_id = get_current_user_id();
-
-        if (!$user_id) {
-            return new \WP_REST_Response([
-                'success' => false,
-                'message' => 'عذراً، يجب تسجيل الدخول لتأكيد الإنجاز.'
-            ], 401);
-        }
-
-        $params = $request->get_json_params();
-        $challenge_id = isset($params['challenge_id']) ? intval($params['challenge_id']) : 0;
+    public function log_activity(WP_REST_Request $request) {
+        global $wpdb;
+        $user_id      = get_current_user_id();
+        $challenge_id = intval($request->get_param('challenge_id'));
+        $points       = intval($request->get_param('points') ?: 10);
 
         if (!$challenge_id) {
-            return new \WP_REST_Response([
-                'success' => false,
-                'message' => 'معرّف التحدي غير صحيح.'
-            ], 400);
+            return new \WP_Error('invalid_data', 'رقم التحدي مفقود', ['status' => 400]);
         }
 
-        global $wpdb;
-        $activity_table = $wpdb->prefix . 'himmah_user_activity';
-        $today = current_time('Y-m-d');
+        $table = $wpdb->prefix . 'himmah_user_activity';
 
-        $already_completed = $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$activity_table} WHERE user_id = %d AND challenge_id = %d AND DATE(created_at) = %s",
-                $user_id,
-                $challenge_id,
-                $today
-            )
-        );
-
-        if ($already_completed > 0) {
-            return new \WP_REST_Response([
-                'success' => false,
-                'message' => 'لقد قمت بإنجاز هذا التحدي اليوم بالفعل! 🌟'
-            ], 200);
-        }
-
-        $points_earned = 10;
+        // أدخل السجل بداخل الجدول
         $inserted = $wpdb->insert(
-            $activity_table,
+            $table,
             [
                 'user_id'      => $user_id,
                 'challenge_id' => $challenge_id,
-                'points'       => $points_earned,
+                'points'       => $points,
                 'created_at'   => current_time('mysql'),
             ],
             ['%d', '%d', '%d', '%s']
         );
 
         if (!$inserted) {
-            return new \WP_REST_Response([
-                'success' => false,
-                'message' => 'حدث خطأ أثناء حفظ الإنجاز في قاعدة البيانات.'
-            ], 500);
+            return new \WP_Error('db_error', 'فشل حفظ الإنجاز في قاعدة البيانات', ['status' => 500]);
         }
 
-        $current_points = (int) get_user_meta($user_id, 'himmah_total_points', true);
-        $new_points = $current_points + $points_earned;
-        update_user_meta($user_id, 'himmah_total_points', $new_points);
+        // احسب مجموع النقاط الحالي للمستخدم
+        $total_points = (int) $wpdb->get_var(
+            $wpdb->prepare("SELECT SUM(points) FROM {$table} WHERE user_id = %d", $user_id)
+        );
 
-        return new \WP_REST_Response([
+        return rest_ensure_response([
             'success'      => true,
-            'message'      => 'كفو! تم تسجيل الإنجاز وإضافة 10 نقاط لحسابك 🎉',
-            'points_earned' => $points_earned,
-            'total_points'  => $new_points,
-        ], 200);
+            'message'      => 'تم تسجيل الإنجاز بنجاح',
+            'added_points' => $points,
+            'total_points' => $total_points,
+            'challenge_id' => $challenge_id,
+        ]);
+    }
+
+    public function get_user_stats(WP_REST_Request $request) {
+        global $wpdb;
+        $user_id = get_current_user_id();
+        $table   = $wpdb->prefix . 'himmah_user_activity';
+
+        // إجمالي النقاط
+        $total_points = (int) $wpdb->get_var(
+            $wpdb->prepare("SELECT SUM(points) FROM {$table} WHERE user_id = %d", $user_id)
+        );
+
+        // التحديات المنجزة اليوم فقط
+        $today = current_time('Y-m-d');
+        $completed_ids = $wpdb->get_col(
+            $wpdb->prepare(
+                "SELECT DISTINCT challenge_id FROM {$table} WHERE user_id = %d AND DATE(created_at) = %s",
+                $user_id,
+                $today
+            )
+        );
+
+        return rest_ensure_response([
+            'success'         => true,
+            'total_points'    => $total_points,
+            'completed_today' => array_map('intval', $completed_ids)
+        ]);
     }
 }
