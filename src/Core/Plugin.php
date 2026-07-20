@@ -2,6 +2,7 @@
 
 namespace Himmah\Core;
 
+use Himmah\Admin\MetaBoxes;
 use Himmah\Domain\PostTypes;
 use Himmah\Repositories\ChallengeRepository;
 use Himmah\Rest\ActivityController;
@@ -42,6 +43,7 @@ class Plugin {
 	 */
 	private function __construct() {
 		$this->init_domain();
+		$this->init_admin();
 		$this->init_hooks();
 	}
 
@@ -51,6 +53,15 @@ class Plugin {
 	private function init_domain() {
 		if ( class_exists( 'Himmah\Domain\PostTypes' ) ) {
 			PostTypes::init();
+		}
+	}
+
+	/**
+	 * Initialize admin panels and meta boxes.
+	 */
+	private function init_admin() {
+		if ( is_admin() && class_exists( 'Himmah\Admin\MetaBoxes' ) ) {
+			MetaBoxes::init();
 		}
 	}
 
