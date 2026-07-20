@@ -105,6 +105,11 @@ class ActivityController extends WP_REST_Controller {
 		$completed[] = $challenge_id;
 		update_user_meta( $user_id, 'himmah_completed_challenges', $completed );
 
+		// تنظيف أي مخرجات سابقة (buffers) لضمان صحة هيكل الـ JSON
+		if ( ob_get_length() ) {
+			ob_clean();
+		}
+
 		return new WP_REST_Response(
 			array(
 				'success'      => true,
