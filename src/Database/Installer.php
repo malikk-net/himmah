@@ -7,6 +7,13 @@ namespace MalikK\Himmah\Database;
 class Installer {
 
     /**
+     * دالة التفعيل المباشرة عند تشغيل الإضافة
+     */
+    public static function activate() {
+        self::run();
+    }
+
+    /**
      * تشغيل أوامر إنشاء وتحديث الجداول.
      */
     public static function run() {
