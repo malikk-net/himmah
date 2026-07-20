@@ -32,6 +32,12 @@ class Plugin {
     private function register_hooks() {
         add_action('init', [$this, 'setup_capabilities']);
         add_action('init', ['\MalikK\Himmah\Domain\PostTypes', 'register']);
+        
+        // تسجيل مسارات الـ REST API
+        add_action('rest_api_init', function() {
+            $activity_controller = new \MalikK\Himmah\Rest\ActivityController();
+            $activity_controller->register_routes();
+        });
     }
 
     /**
