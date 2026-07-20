@@ -6,20 +6,13 @@ namespace MalikK\Himmah\Rest;
  */
 class ActivityController {
 
-    /**
-     * تهيئة وتسجيل نقاط النهاية (Endpoints)
-     */
     public static function init() {
         add_action('rest_api_init', [self::class, 'register_routes']);
     }
 
-    /**
-     * تسجيل مسارات API المخصصة
-     */
     public static function register_routes() {
         $namespace = 'himmah/v1';
 
-        // مسار جلب الأنشطة وتأكيد الإنجاز
         register_rest_route($namespace, '/activities', [
             [
                 'methods'             => 'GET',
@@ -36,9 +29,6 @@ class ActivityController {
         ]);
     }
 
-    /**
-     * الاستجابة لطلب جلب الأنشطة الخاصة بالمستخدم
-     */
     public static function get_activities($request) {
         $user_id = get_current_user_id();
 
@@ -71,9 +61,6 @@ class ActivityController {
         ], 200);
     }
 
-    /**
-     * الاستجابة لطلب تسجيل إنجاز تحدي وتحديث النقاط
-     */
     public static function log_activity($request) {
         $user_id = get_current_user_id();
 
@@ -98,7 +85,6 @@ class ActivityController {
         $activity_table = $wpdb->prefix . 'himmah_user_activity';
         $today = current_time('Y-m-d');
 
-        // 1. التحقق مما إذا كان التحدي تم إنجازه اليوم بالفعل
         $already_completed = $wpdb->get_var(
             $wpdb->prepare(
                 "SELECT COUNT(*) FROM {$activity_table} WHERE user_id = %d AND challenge_id = %d AND DATE(created_at) = %s",
@@ -115,7 +101,6 @@ class ActivityController {
             ], 200);
         }
 
-        // 2. تسجيل الإنجاز في جدول الأنشطة (10 نقاط لكل تحدي)
         $points_earned = 10;
         $inserted = $wpdb->insert(
             $activity_table,
@@ -135,7 +120,6 @@ class ActivityController {
             ], 500);
         }
 
-        // 3. تحديث مجموع النقاط للمستخدم في User Meta
         $current_points = (int) get_user_meta($user_id, 'himmah_total_points', true);
         $new_points = $current_points + $points_earned;
         update_user_meta($user_id, 'himmah_total_points', $new_points);
@@ -143,8 +127,8 @@ class ActivityController {
         return new \WP_REST_Response([
             'success'      => true,
             'message'      => 'كفو! تم تسجيل الإنجاز وإضافة 10 نقاط لحسابك 🎉',
-            'points_earned'=> $points_earned,
-            'total_points' => $new_points,
+            'points_earned' => $points_earned,
+            'total_points'  => $new_points,
         ], 200);
     }
 }
