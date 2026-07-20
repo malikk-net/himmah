@@ -19,7 +19,7 @@ define( 'HIMMAH_PLUGIN_FILE', __FILE__ );
 define( 'HIMMAH_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'HIMMAH_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
-// 2. المحمل التلقائي للكلاسات (Composer / PSR-4 Autoloader)
+// 2. المحمل التلقائي للكلاسات (Autoloader)
 if ( file_exists( HIMMAH_PLUGIN_DIR . 'vendor/autoload.php' ) ) {
 	require_once HIMMAH_PLUGIN_DIR . 'vendor/autoload.php';
 } else {
@@ -41,10 +41,13 @@ if ( file_exists( HIMMAH_PLUGIN_DIR . 'vendor/autoload.php' ) ) {
 	} );
 }
 
-// 3. خطة تفعيل الإضافة وإنشاء الجداول
+// 3. تضمين ملف التنصيب مباشرة لمنع أخطاء التفعيل الفادحة
+require_once HIMMAH_PLUGIN_DIR . 'src/Database/Installer.php';
+
+// 4. خطة تفعيل الإضافة وإنشاء الجداول
 register_activation_hook( __FILE__, array( 'Himmah\\Database\\Installer', 'run' ) );
 
-// 4. تشغيل الإضافة عند اكتمال تحميل ووردبريس
+// 5. تشغيل الإضافة عند اكتمال تحميل ووردبريس
 add_action( 'plugins_loaded', function () {
 	if ( class_exists( 'Himmah\\Core\\Plugin' ) ) {
 		\Himmah\Core\Plugin::get_instance();
