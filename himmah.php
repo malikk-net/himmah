@@ -16,26 +16,13 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-// كاشف الأخطاء المباشر للإضافة (في حال وجود أي خطأ فادح)
-register_shutdown_function(function () {
-    $error = error_get_last();
-    if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
-        wp_die(
-            '<div style="direction:rtl; font-family:sans-serif; background:#fff; padding:20px; border:2px solid #ef4444; border-radius:8px;">' .
-            '<h3 style="color:#dc2626; margin-top:0;">🚨 تم كشف الخطأ الفادح:</h3>' .
-            '<p><strong>الرسالة:</strong> <code style="color:#b91c1c;">' . esc_html($error['message']) . '</code></p>' .
-            '<p><strong>الملف المسبب:</strong> <code>' . esc_html($error['file']) . '</code></p>' .
-            '<p><strong>رقم السطر:</strong> <code>' . esc_html($error['line']) . '</code></p>' .
-            '</div>'
-        );
-    }
-});
-
 define('HIMMAH_VERSION', '1.0.0');
 define('HIMMAH_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('HIMMAH_PLUGIN_URL', plugin_dir_url(__FILE__));
 
-// تسجيل مسجل الفئات التلقائي (Autoloader)
+/**
+ * المحمّل التلقائي (Autoloader) الذكي والسامح بحالة الأحرف لسيرفرات Linux
+ */
 spl_autoload_register(function ($class) {
     $prefix = 'MalikK\\Himmah\\';
     $base_dir = HIMMAH_PLUGIN_DIR . 'src/';
@@ -46,10 +33,30 @@ spl_autoload_register(function ($class) {
     }
 
     $relative_class = substr($class, $len);
+    
+    // 1. تجربة المسار الأصلي كما هو
     $file = $base_dir . str_replace('\\', '/', $relative_class) . '.php';
-
     if (file_exists($file)) {
         require_once $file;
+        return;
+    }
+
+    // 2. تجربة المسار باسم المجلد بحروف صغيرة (Linux case-sensitivity fallback)
+    $parts = explode('\\', $relative_class);
+    $filename = array_pop($parts);
+    $dir_lower = implode('/', array_map('strtolower', $parts));
+    
+    $file_dir_lower = $base_dir . ($dir_lower ? $dir_lower . '/' : '') . $filename . '.php';
+    if (file_exists($file_dir_lower)) {
+        require_once $file_dir_lower;
+        return;
+    }
+
+    // 3. تجربة المسار الكامل بحروف صغيرة
+    $file_all_lower = $base_dir . strtolower(str_replace('\\', '/', $relative_class)) . '.php';
+    if (file_exists($file_all_lower)) {
+        require_once $file_all_lower;
+        return;
     }
 });
 
@@ -59,23 +66,20 @@ if (file_exists(HIMMAH_PLUGIN_DIR . 'vendor/autoload.php')) {
 }
 
 /**
- * دالة التفعيل مع صيد الأخطاء وإظهارها فوراً
+ * دالة التفعيل الآمنة
  */
 function activate_himmah_plugin() {
     try {
+        if (file_exists(ABSPATH . 'wp-admin/includes/upgrade.php')) {
+            require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        }
+
         $installer_class = 'MalikK\\Himmah\\Database\\Installer';
         if (class_exists($installer_class)) {
             $installer_class::activate();
-        } else {
-            wp_die('❌ <strong>خطأ في التحميل:</strong> لم يتم العثور على الفئة <code>' . $installer_class . '</code>. تحقق من مسار مجلد src وحالة الأحرف (Case-sensitivity).');
         }
     } catch (\Throwable $e) {
-        wp_die(
-            '<h3>❌ حدث خطأ أثناء تفعيل إضافة هِمّة:</h3>' .
-            '<p><strong>الرسالة:</strong> ' . $e->getMessage() . '</p>' .
-            '<p><strong>الملف:</strong> ' . $e->getFile() . '</p>' .
-            '<p><strong>السطر:</strong> ' . $e->getLine() . '</p>'
-        );
+        error_log('Himmah Activation Error: ' . $e->getMessage());
     }
 }
 register_activation_hook(__FILE__, 'activate_himmah_plugin');
