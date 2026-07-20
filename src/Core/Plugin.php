@@ -40,6 +40,9 @@ class Plugin {
 
             $dashboard_controller = new \MalikK\Himmah\Rest\DashboardController();
             $dashboard_controller->register_routes();
+
+            $privacy_controller = new \MalikK\Himmah\Rest\PrivacyController();
+            $privacy_controller->register_routes();
         });
     }
 
