@@ -2,6 +2,7 @@
 
 namespace Himmah\Core;
 
+use Himmah\Domain\PostTypes;
 use Himmah\Rest\ActivityController;
 use Himmah\Rest\DashboardController;
 use Himmah\Rest\PrivacyController;
@@ -39,7 +40,17 @@ class Plugin {
 	 * Constructor.
 	 */
 	private function __construct() {
+		$this->init_domain();
 		$this->init_hooks();
+	}
+
+	/**
+	 * Initialize domain models and post types.
+	 */
+	private function init_domain() {
+		if ( class_exists( 'Himmah\Domain\PostTypes' ) ) {
+			PostTypes::init();
+		}
 	}
 
 	/**
