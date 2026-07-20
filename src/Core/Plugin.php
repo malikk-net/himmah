@@ -31,6 +31,7 @@ class Plugin {
      */
     private function register_hooks() {
         add_action('init', [$this, 'setup_capabilities']);
+        add_action('init', ['\MalikK\Himmah\Domain\PostTypes', 'register']);
     }
 
     /**
