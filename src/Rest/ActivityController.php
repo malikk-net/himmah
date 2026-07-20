@@ -56,6 +56,15 @@ class ActivityController extends WP_REST_Controller {
 			return new WP_Error( 'invalid_challenge', __( 'معرف التحدي غير صالح.', 'himmah' ), array( 'status' => 400 ) );
 		}
 
+		// التحقق مما إذا كان المستخدم قد أتم هذا التحدي مسبقاً
+		$completed = get_user_meta( $user_id, 'himmah_completed_challenges', true );
+		if ( ! is_array( $completed ) ) {
+			$completed = array();
+		}
+		if ( in_array( $challenge_id, array_map( 'intval', $completed ), true ) ) {
+			return new WP_Error( 'already_completed', __( 'لقد قمت بإنجاز هذا التحدي مسبقاً.', 'himmah' ), array( 'status' => 400 ) );
+		}
+
 		// جلب نقاط التحدي أو القيمة الافتراضية 10
 		$points = (int) get_post_meta( $challenge_id, '_himmah_points', true );
 		if ( $points <= 0 ) {
@@ -64,7 +73,7 @@ class ActivityController extends WP_REST_Controller {
 
 		$table_name = $wpdb->prefix . 'himmah_activities';
 
-		// التأكد من وجود الجدول لضمان عدم حدوث خطأ 500
+		// التأكد من وجود الجدول
 		if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $table_name ) ) !== $table_name ) {
 			if ( class_exists( 'Himmah\Database\Installer' ) ) {
 				\Himmah\Database\Installer::run();
@@ -93,14 +102,8 @@ class ActivityController extends WP_REST_Controller {
 		update_user_meta( $user_id, 'himmah_total_points', $total_points );
 
 		// تحديث قائمة التحديات المكتملة
-		$completed = get_user_meta( $user_id, 'himmah_completed_challenges', true );
-		if ( ! is_array( $completed ) ) {
-			$completed = array();
-		}
-		if ( ! in_array( $challenge_id, $completed, true ) ) {
-			$completed[] = $challenge_id;
-			update_user_meta( $user_id, 'himmah_completed_challenges', $completed );
-		}
+		$completed[] = $challenge_id;
+		update_user_meta( $user_id, 'himmah_completed_challenges', $completed );
 
 		return new WP_REST_Response(
 			array(
