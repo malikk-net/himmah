@@ -49,6 +49,11 @@ class ActivityController extends WP_REST_Controller {
 	public function log_activity( $request ) {
 		global $wpdb;
 
+		// تنظيف أي مخرجات سابقة لمنع تلوث الـ JSON
+		if ( ob_get_length() ) {
+			ob_clean();
+		}
+
 		$user_id      = get_current_user_id();
 		$challenge_id = absint( $request->get_param( 'challenge_id' ) );
 
@@ -105,12 +110,7 @@ class ActivityController extends WP_REST_Controller {
 		$completed[] = $challenge_id;
 		update_user_meta( $user_id, 'himmah_completed_challenges', $completed );
 
-		// تنظيف أي مخرجات سابقة (buffers) لضمان صحة هيكل الـ JSON
-		if ( ob_get_length() ) {
-			ob_clean();
-		}
-
-		return new WP_REST_Response(
+		$response = new WP_REST_Response(
 			array(
 				'success'      => true,
 				'message'      => __( 'تم تسجيل إنجاز التحدي بنجاح!', 'himmah' ),
@@ -119,5 +119,8 @@ class ActivityController extends WP_REST_Controller {
 			),
 			200
 		);
+
+		$response->header( 'Content-Type', 'application/json; charset=utf-8' );
+		return $response;
 	}
 }
