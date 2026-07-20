@@ -33,6 +33,10 @@ class Installer {
 		) $charset_collate;";
 
 		require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+
+		// منع دالة dbDelta من طباعة أي نصوص أو HTML يفسد استجابة الـ JSON للـ API
+		ob_start();
 		dbDelta( $sql );
+		ob_end_clean();
 	}
 }
