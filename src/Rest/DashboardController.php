@@ -1,104 +1,137 @@
 <?php
-namespace MalikK\Himmah\Rest;
+
+namespace Himmah\Rest;
 
 use WP_REST_Controller;
-use WP_REST_Response;
+use WP_REST_Server;
 use WP_REST_Request;
+use WP_REST_Response;
+use WP_Error;
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit; // Exit if accessed directly
+}
 
 /**
- * متحكم الـ REST API لعرض بيانات لوحة اليوم والإحصائيات
+ * Class DashboardController
+ * Handles REST API endpoints for fetching Himmah user dashboard stats & progress.
  */
 class DashboardController extends WP_REST_Controller {
 
-    protected $namespace = 'himmah/v1';
-    protected $rest_base = 'me/dashboard';
+	/**
+	 * Endpoint namespace.
+	 *
+	 * @var string
+	 */
+	protected $namespace = 'himmah/v1';
 
-    /**
-     * تسجيل المسارات
-     */
-    public function register_routes() {
-        register_rest_route($this->namespace, '/' . $this->rest_base, [
-            [
-                'methods'             => 'GET',
-                'callback'            => [$this, 'get_dashboard_data'],
-                'permission_callback' => [$this, 'permissions_check'],
-            ],
-        ]);
-    }
+	/**
+	 * Route base.
+	 *
+	 * @var string
+	 */
+	protected $rest_base = 'dashboard';
 
-    /**
-     * التحقق من تسجيل دخول المستخدم
-     */
-    public function permissions_check($request) {
-        if (!is_user_logged_in()) {
-            return new \WP_Error('himmah_unauthorized', 'يجب تسجيل الدخول لعرض بيانات اللوحة.', ['status' => 401]);
-        }
-        return true;
-    }
+	/**
+	 * Register the REST API routes.
+	 */
+	public function register_routes() {
+		// GET /wp-json/himmah/v1/dashboard
+		register_rest_route(
+			$this->namespace,
+			'/' . $this->rest_base,
+			array(
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( $this, 'get_dashboard_data' ),
+					'permission_callback' => array( $this, 'check_permission' ),
+				),
+			)
+		);
+	}
 
-    /**
-     * جلب بيانات لوحة اليوم للمستخدم الحالي
-     */
-    public function get_dashboard_data(WP_REST_Request $request) {
-        global $wpdb;
-        $user_id    = get_current_user_id();
-        $today_date = current_time('Y-m-d');
+	/**
+	 * Check if user is logged in.
+	 *
+	 * @param WP_REST_Request $request
+	 * @return bool|WP_Error
+	 */
+	public function check_permission( $request ) {
+		if ( ! is_user_logged_in() ) {
+			return new WP_Error(
+				'rest_forbidden',
+				__( 'عذرًا، يجب عليك تسجيل الدخول لعرض بيانات لوحة التحكم.', 'himmah' ),
+				array( 'status' => 401 )
+			);
+		}
+		return true;
+	}
 
-        // 1. جلب إحصائيات النقاط والإنجازات
-        $stats_table = $wpdb->prefix . 'himmah_user_stats';
-        $stats       = $wpdb->get_row(
-            $wpdb->prepare("SELECT total_activity_points, completed_challenges_count FROM $stats_table WHERE user_id = %d", $user_id)
-        );
+	/**
+	 * Retrieve dashboard data for current user.
+	 *
+	 * @param WP_REST_Request $request
+	 * @return WP_REST_Response
+	 */
+	public function get_dashboard_data( $request ) {
+		$user_id      = get_current_user_id();
+		$user_data    = get_userdata( $user_id );
+		$total_points = (int) get_user_meta( $user_id, 'himmah_total_points', true );
 
-        // 2. جلب بيانات السلسلة وأيام الرحمة
-        $streaks_table = $wpdb->prefix . 'himmah_streaks';
-        $streak        = $wpdb->get_row(
-            $wpdb->prepare("SELECT current_streak, mercy_days_balance FROM $streaks_table WHERE user_id = %d", $user_id)
-        );
+		$completed_challenges = get_user_meta( $user_id, 'himmah_completed_challenges', true );
+		if ( ! is_array( $completed_challenges ) ) {
+			$completed_challenges = array();
+		}
 
-        // 3. جلب تفضيلات الهدف اليومي
-        $pref_table  = $wpdb->prefix . 'himmah_user_preferences';
-        $preferences = $wpdb->get_row(
-            $wpdb->prepare("SELECT daily_goal_count FROM $pref_table WHERE user_id = %d", $user_id)
-        );
+		// Calculate tier/level based on total points
+		$tier = $this->calculate_user_tier( $total_points );
 
-        $daily_goal = $preferences ? intval($preferences->daily_goal_count) : 3;
+		$response = array(
+			'success'           => true,
+			'user_id'           => $user_id,
+			'display_name'      => $user_data ? $user_data->display_name : '',
+			'total_points'      => $total_points,
+			'tier_name'         => $tier['name'],
+			'tier_badge'        => $tier['badge'],
+			'next_tier_points'  => $tier['next_points'],
+			'completed_count'   => count( $completed_challenges ),
+			'recent_activities' => array_slice( array_reverse( $completed_challenges ), 0, 5 ),
+		);
 
-        // 4. جلب أنشطة اليوم المكتملة
-        $activities_table = $wpdb->prefix . 'himmah_activities';
-        $today_activities = $wpdb->get_results(
-            $wpdb->prepare(
-                "SELECT id, uuid, activity_key, points_eligible, completed_at_utc 
-                 FROM $activities_table 
-                 WHERE user_id = %d AND local_date = %s AND status = 'completed'",
-                $user_id, $today_date
-            )
-        );
+		return new WP_REST_Response( $response, 200 );
+	}
 
-        $completed_today_count = count($today_activities);
-        $completion_percentage = $daily_goal > 0 ? min(100, round(($completed_today_count / $daily_goal) * 100)) : 0;
+	/**
+	 * Determine user tier based on points.
+	 *
+	 * @param int $points
+	 * @return array
+	 */
+	private function calculate_user_tier( $points ) {
+		if ( $points >= 1000 ) {
+			return array(
+				'name'        => 'البلاتيني',
+				'badge'       => '💎 البلاتيني',
+				'next_points' => 0,
+			);
+		} elseif ( $points >= 500 ) {
+			return array(
+				'name'        => 'الذهبي',
+				'badge'       => '🥇 الذهبي',
+				'next_points' => 1000 - $points,
+			);
+		} elseif ( $points >= 200 ) {
+			return array(
+				'name'        => 'الفضي',
+				'badge'       => '🥈 الفضي',
+				'next_points' => 500 - $points,
+			);
+		}
 
-        $response_data = [
-            'today_date' => $today_date,
-            'summary'    => [
-                'completion_percentage'   => $completion_percentage,
-                'completed_goals_today'   => $completed_today_count,
-                'daily_goal_target'       => $daily_goal,
-                'total_activity_points'   => $stats ? intval($stats->total_activity_points) : 0,
-                'completed_total_count'   => $stats ? intval($stats->completed_challenges_count) : 0,
-                'current_streak'          => $streak ? intval($streak->current_streak) : 0,
-                'mercy_days_balance'      => $streak ? intval($streak->mercy_days_balance) : 0,
-            ],
-            'today_activities' => $today_activities,
-        ];
-
-        return new WP_REST_Response([
-            'success' => true,
-            'data'    => $response_data,
-            'meta'    => [
-                'api_version' => '1',
-                'server_time' => current_time('mysql', 1),
-            ]
-        ], 200);
-    }
+		return array(
+			'name'        => 'البرونزي',
+			'badge'       => '🥉 البرونزي',
+			'next_points' => 200 - $points,
+		);
+	}
 }
