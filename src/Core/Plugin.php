@@ -1,74 +1,26 @@
 <?php
 namespace MalikK\Himmah\Core;
 
-/**
- * فئة النواة الرئيسية لإدارة الإضافة
- */
+use MalikK\Himmah\Domain\PostTypes;
+use MalikK\Himmah\Rest\ActivityController;
+use MalikK\Himmah\Blocks\DashboardBlock;
+
 class Plugin {
 
-    private static $instance = null;
-
-    /**
-     * الحصول على نسخة واحدة من الفئة (Singleton Pattern)
-     */
-    public static function instance() {
-        if (is_null(self::$instance)) {
-            self::$instance = new self();
-        }
-        return self::$instance;
-    }
-
-    /**
-     * تهيئة الإضافة
-     */
     public static function init() {
-        $plugin = self::instance();
-        $plugin->register_hooks();
-    }
+        // تسجيل أنواع المحتوى المخصص
+        if (class_exists('MalikK\\Himmah\\Domain\\PostTypes')) {
+            PostTypes::init();
+        }
 
-    /**
-     * تسجيل الخطافات (Hooks) الخاصة بالإضافة
-     */
-    private function register_hooks() {
-        add_action('init', [$this, 'setup_capabilities']);
-        add_action('init', ['\MalikK\Himmah\Domain\PostTypes', 'register']);
-        add_action('init', ['\MalikK\Himmah\Blocks\DashboardBlock', 'register']);
-        
         // تسجيل مسارات الـ REST API
-        add_action('rest_api_init', function() {
-            $activity_controller = new \MalikK\Himmah\Rest\ActivityController();
-            $activity_controller->register_routes();
+        if (class_exists('MalikK\\Himmah\\Rest\\ActivityController')) {
+            ActivityController::init();
+        }
 
-            $dashboard_controller = new \MalikK\Himmah\Rest\DashboardController();
-            $dashboard_controller->register_routes();
-
-            $privacy_controller = new \MalikK\Himmah\Rest\PrivacyController();
-            $privacy_controller->register_routes();
-        });
-    }
-
-    /**
-     * إضافة الصلاحيات المخصصة لمدير الموقع
-     */
-    public function setup_capabilities() {
-        $role = get_role('administrator');
-        if ($role) {
-            $capabilities = [
-                'himmah_manage_settings',
-                'himmah_manage_challenges',
-                'himmah_manage_journeys',
-                'himmah_manage_programs',
-                'himmah_manage_badges',
-                'himmah_manage_groups',
-                'himmah_manage_points',
-                'himmah_view_reports',
-            ];
-
-            foreach ($capabilities as $cap) {
-                if (!$role->has_cap($cap)) {
-                    $role->add_cap($cap);
-                }
-            }
+        // تسجيل بلوك لوحة تحكم هِمّة
+        if (class_exists('MalikK\\Himmah\\Blocks\\DashboardBlock')) {
+            DashboardBlock::init();
         }
     }
 }
