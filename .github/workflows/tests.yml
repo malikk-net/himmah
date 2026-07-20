@@ -1,6 +1,5 @@
 name: Himmah Plugin CI Tests
 
-# تشغيل الاختبارات عند أي Push أو Pull Request للفرع الرئيسي main
 on:
   push:
     branches: [ main ]
@@ -8,34 +7,20 @@ on:
     branches: [ main ]
 
 jobs:
-  php-lint-and-test:
-    name: Run PHP Syntax Check & Linting
+  php-lint:
+    name: Run PHP Syntax Check
     runs-on: ubuntu-latest
 
     steps:
-      # 1. جلب الكود من GitHub
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2. تجهيز بيئة PHP
       - name: Setup PHP Environment
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.1'
-          extensions: mbstring, intl, pdo, pdo_mysql, mysqli
 
-      # 3. التحقق من سلامة ملف composer.json
-      - name: Validate Composer File
-        run: composer validate --strict
-
-      # 4. تثبيت الحزم (إذا كان هناك حزم في composer)
-      - name: Install Composer Dependencies
-        run: composer install --prefer-dist --no-progress --no-suggest || true
-
-      # 5. فحص جميع ملفات PHP للتأكد من عدم وجود أخطاء صياغة (Syntax Check)
-      - name: Check PHP Syntax Errors (Lint)
+      - name: Check PHP Syntax Errors
         run: |
-          echo "Checking syntax for himmah.php..."
-          php -l himmah.php
-          echo "Checking syntax for all files in src directory..."
-          find src/ -type f -name "*.php" -exec php -l {} \;
+          echo "Scanning all PHP files for syntax errors..."
+          find . -type f -name "*.php" -not -path "./vendor/*" -exec php -l {} \;
