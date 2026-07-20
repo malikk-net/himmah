@@ -37,6 +37,9 @@ class Plugin {
         add_action('rest_api_init', function() {
             $activity_controller = new \MalikK\Himmah\Rest\ActivityController();
             $activity_controller->register_routes();
+
+            $dashboard_controller = new \MalikK\Himmah\Rest\DashboardController();
+            $dashboard_controller->register_routes();
         });
     }
 
