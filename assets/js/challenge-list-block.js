@@ -33,67 +33,53 @@
 })(window.wp.blocks, window.wp.element);
 
 // التفاعل في الواجهة الأمامية عند الضغط على زر الإنجاز
-document.addEventListener('DOMContentLoaded', function () {
-    document.addEventListener('click', function (e) {
-        // اقتناص زر الإنجاز في الصفحة
-        var btn = e.target.closest('.himmah-complete-btn, [data-challenge-id]');
-        if (!btn) return;
-
-        e.preventDefault();
-
-        var challengeId = btn.getAttribute('data-challenge-id') || 1;
-        var originalText = btn.innerText;
-
+document.addEventListener('click', function (e) {
+    if (e.target && e.target.classList.contains('himmah-complete-btn')) {
+        const btn = e.target;
+        const challengeId = btn.getAttribute('data-challenge-id');
+        
         btn.disabled = true;
-        btn.innerText = 'جاري التسجيل...';
+        btn.textContent = 'جاري التسجيل...';
 
-        // الحصول على مفتاح الأمان ورابط الـ API
-        var nonce = (typeof himmahData !== 'undefined' && himmahData.nonce) 
-            ? himmahData.nonce 
-            : ((typeof wpApiSettings !== 'undefined') ? wpApiSettings.nonce : '');
-
-        var apiUrl = (typeof himmahData !== 'undefined' && himmahData.root) 
-            ? himmahData.root + 'log-activity' 
-            : '/wp-json/himmah/v1/log-activity';
-
-        fetch(apiUrl, {
+        fetch(himmahData.root + 'log-activity', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-WP-Nonce': nonce
+                'X-WP-Nonce': himmahData.nonce
             },
-            body: JSON.stringify({ 
-                challenge_id: challengeId,
-                points: 10 
+            body: JSON.stringify({
+                challenge_id: challengeId
             })
         })
-        .then(function (response) { return response.json(); })
-        .then(function (data) {
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Server returned status ' + response.status);
+            }
+            return response.json();
+        })
+        .then(data => {
             if (data.success) {
-                // 1. تغيير زر الإنجاز إلى حالة المكتمل
-                btn.innerText = '✅ تم الإنجاز';
-                btn.style.backgroundColor = '#10b981';
-                btn.style.color = '#ffffff';
-
-                // 2. تحديث إجمالي النقاط في الشاشة فوراً
-                var newTotal = data.total_points !== undefined ? data.total_points : data.points;
-                if (newTotal !== undefined) {
-                    var pointsBadges = document.querySelectorAll('.himmah-points-badge, [class*="points"]');
-                    pointsBadges.forEach(function (badge) {
-                        badge.innerText = newTotal + ' نقطة';
-                    });
-                }
+                btn.textContent = 'تم الإنجاز ✅';
+                btn.style.background = '#6b7280';
+                
+                // تحديث شارة النقاط في الصفحة فورياً
+                const pointsBadges = document.querySelectorAll('.himmah-points-badge');
+                pointsBadges.forEach(badge => {
+                    if (data.total_points !== undefined) {
+                        badge.textContent = data.total_points + ' نقطة';
+                    }
+                });
             } else {
-                alert(data.message || 'يرجى تسجيل الدخول لتسجيل الإنجاز.');
+                alert('حدث خطأ أثناء إنجاز التحدي.');
                 btn.disabled = false;
-                btn.innerText = originalText;
+                btn.textContent = 'إنجاز التحدي';
             }
         })
-        .catch(function (err) {
-            console.error(err);
-            alert('حدث خطأ أثناء الاتصال بالخادم.');
+        .catch(error => {
+            console.error('Himmah Error:', error);
+            alert('حدث خطأ في الاتصال بالخادم. يرجى المحاولة مرة أخرى.');
             btn.disabled = false;
-            btn.innerText = originalText;
+            btn.textContent = 'إنجاز التحدي';
         });
-    });
+    }
 });
