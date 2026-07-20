@@ -1,38 +1,57 @@
 <?php
-namespace MalikK\Himmah\Database;
+
+namespace Himmah\Database;
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit; // Exit if accessed directly
+}
 
 /**
- * فئة تثبيت وإنشاء جداول قاعدة البيانات الخاصة بإضافة هِمّة
+ * Class Installer
+ * Handles database table creation and activation setup for Himmah plugin.
  */
 class Installer {
 
-    /**
-     * تشغيل عمليات التثبيت عند تفعيل الإضافة
-     */
-    public static function activate() {
-        global $wpdb;
+	/**
+	 * Run installation tasks.
+	 */
+	public static function run() {
+		self::create_tables();
+		self::set_default_options();
+	}
 
-        // ⚠️ مهم جداً: استدعاء ملف upgrade.php لتوفير دالة dbDelta
-        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+	/**
+	 * Create custom database tables.
+	 */
+	private static function create_tables() {
+		global $wpdb;
 
-        $charset_collate = $wpdb->get_charset_collate();
+		$charset_collate = $wpdb->get_charset_collate();
+		$table_name      = $wpdb->prefix . 'himmah_activities';
 
-        // 1. جدول أنشطة وإنجازات المستخدمين
-        $table_activity = $wpdb->prefix . 'himmah_user_activity';
-        $sql_activity = "CREATE TABLE {$table_activity} (
-            id bigint(20) NOT NULL AUTO_INCREMENT,
-            user_id bigint(20) NOT NULL,
-            challenge_id bigint(20) NOT NULL,
-            points int(11) DEFAULT 0 NOT NULL,
-            created_at datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
-            PRIMARY KEY  (id),
-            KEY user_id (user_id),
-            KEY challenge_id (challenge_id)
-        ) {$charset_collate};";
+		$sql = "CREATE TABLE $table_name (
+			id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+			user_id bigint(20) UNSIGNED NOT NULL,
+			challenge_id bigint(20) UNSIGNED NOT NULL,
+			points int(11) DEFAULT 10 NOT NULL,
+			created_at datetime DEFAULT CURRENT_TIMESTAMP NOT NULL,
+			PRIMARY KEY  (id),
+			KEY user_id (user_id),
+			KEY challenge_id (challenge_id)
+		) $charset_collate;";
 
-        dbDelta($sql_activity);
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+		dbDelta( $sql );
+	}
 
-        // حفظ رقم إصدار قاعدة البيانات
-        update_option('himmah_db_version', HIMMAH_VERSION);
-    }
+	/**
+	 * Set default options and version tracker.
+	 */
+	private static function set_default_options() {
+		if ( ! get_option( 'himmah_version' ) ) {
+			add_option( 'himmah_version', '0.3.0' );
+		} else {
+			update_option( 'himmah_version', '0.3.0' );
+		}
+	}
 }
