@@ -13,10 +13,9 @@
  */
 
 if (!defined('ABSPATH')) {
-    exit; // منع الوصول المباشر للملف
+    exit;
 }
 
-// تعريف الثوابت الأساسية للإضافة
 define('HIMMAH_VERSION', '1.0.0');
 define('HIMMAH_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('HIMMAH_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -35,7 +34,7 @@ spl_autoload_register(function ($class) {
     $file = $base_dir . str_replace('\\', '/', $relative_class) . '.php';
 
     if (file_exists($file)) {
-        require $file;
+        require_once $file;
     }
 });
 
@@ -45,26 +44,32 @@ if (file_exists(HIMMAH_PLUGIN_DIR . 'vendor/autoload.php')) {
 }
 
 /**
- * دالة التفعيل (تُنفّذ عند تفعيل الإضافة لإنشاء جداول قاعدة البيانات)
+ * دالة التفعيل مع صيد الأخطاء وإظهارها فوراً
  */
 function activate_himmah_plugin() {
-    if (class_exists('MalikK\\Himmah\\Database\\Installer')) {
-        \MalikK\Himmah\Database\Installer::activate();
+    try {
+        $installer_class = 'MalikK\\Himmah\\Database\\Installer';
+        if (class_exists($installer_class)) {
+            $installer_class::activate();
+        } else {
+            wp_die('❌ <strong>خطأ في التحميل:</strong> لم يتم العثور على الفئة <code>' . $installer_class . '</code>. تحقق من مسار مجلد src وحالة الأحرف (Case-sensitivity).');
+        }
+    } catch (\Throwable $e) {
+        wp_die(
+            '<h3>❌ حدث خطأ أثناء تفعيل إضافة هِمّة:</h3>' .
+            '<p><strong>الرسالة:</strong> ' . $e->getMessage() . '</p>' .
+            '<p><strong>الملف:</strong> ' . $e->getFile() . '</p>' .
+            '<p><strong>السطر:</strong> ' . $e->getLine() . '</p>'
+        );
     }
 }
 register_activation_hook(__FILE__, 'activate_himmah_plugin');
 
-/**
- * دالة إلغاء التفعيل
- */
 function deactivate_himmah_plugin() {
-    // يمكن إضافة خطط تنظيف الخادم أو المجدولات هنا لاحقاً
+    // خطط التنظيف إن وجدت
 }
 register_deactivation_hook(__FILE__, 'deactivate_himmah_plugin');
 
-/**
- * تشغيل الإضافة فور اكتمال تحميل إضافات ووردبريس
- */
 add_action('plugins_loaded', function() {
     if (class_exists('MalikK\\Himmah\\Core\\Plugin')) {
         \MalikK\Himmah\Core\Plugin::init();
