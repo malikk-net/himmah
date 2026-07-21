@@ -22,13 +22,21 @@ document.addEventListener('DOMContentLoaded', function () {
                 },
                 body: JSON.stringify({ challenge_id: challengeId })
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    currentButton.textContent = 'تم الإنجاز ✓';
-                } else {
-                    // سيظهر هنا نص خطأ قاعدة البيانات الحقيقي بوضوح تام
-                    alert('تنبيه: ' + (data.message || 'فشل التسجيل'));
+            .then(response => response.text())
+            .then(text => {
+                console.log("Raw Server Response:", text); // طباعة الاستجابة في الكونسول لتفقدها
+                try {
+                    const data = JSON.parse(text);
+                    if (data.success) {
+                        currentButton.textContent = 'تم الإنجاز ✓';
+                    } else {
+                        alert('تنبيه: ' + (data.message || 'فشل التسجيل'));
+                        currentButton.textContent = 'تسجيل';
+                        currentButton.disabled = false;
+                    }
+                } catch (err) {
+                    // سيظهر هنا نص الاستجابة الحقيقي الذي يرسله السيرفر (سواء كان خطأ PHP أو HTML)
+                    alert('استجابة غير صالحة من الخادم: ' + text.substring(0, 200));
                     currentButton.textContent = 'تسجيل';
                     currentButton.disabled = false;
                 }
