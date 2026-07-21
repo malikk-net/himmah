@@ -70,14 +70,20 @@ function himmah_handle_log_activity( WP_REST_Request $request ) {
 
     $user_id = get_current_user_id();
     if ( ! $user_id ) {
-        return new WP_Error( 'rest_not_logged_in', 'يجب تسجيل الدخول أولاً', array( 'status' => 401 ) );
+        return rest_ensure_response( array(
+            'success' => false,
+            'message' => 'يجب تسجيل الدخول أولاً'
+        ) );
     }
 
     $params       = $request->get_json_params();
     $challenge_id = isset( $params['challenge_id'] ) ? intval( $params['challenge_id'] ) : 0;
 
     if ( ! $challenge_id ) {
-        return new WP_Error( 'rest_invalid_param', 'معرف التحدي مفقود أو غير صالح', array( 'status' => 400 ) );
+        return rest_ensure_response( array(
+            'success' => false,
+            'message' => 'معرف التحدي مفقود أو غير صالح'
+        ) );
     }
 
     $table_name = $wpdb->prefix . 'himmah_activities';
@@ -85,30 +91,36 @@ function himmah_handle_log_activity( WP_REST_Request $request ) {
 
     // التحقق من عدم تسجيل نفس التحدي مسبقاً في نفس اليوم
     $exists = $wpdb->get_var( $wpdb->prepare(
-        "SELECT COUNT(*) FROM $table_name WHERE user_id = %d AND object_id = %d AND local_date = %s",
+        "SELECT COUNT(*) FROM $table_name WHERE user_id = %d AND challenge_id = %d AND local_date = %s",
         $user_id,
         $challenge_id,
         $today
     ));
 
     if ( $exists > 0 ) {
-        return new WP_Error( 'already_logged', 'لقد قمت بتسجيل هذا التحدي مسبقاً اليوم', array( 'status' => 400 ) );
+        return rest_ensure_response( array(
+            'success' => false,
+            'message' => 'لقد قمت بتسجيل هذا التحدي مسبقاً اليوم'
+        ) );
     }
 
-    // إدخال السجل الجديد في الجدول
+    // إدخال السجل الجديد
     $inserted = $wpdb->insert(
         $table_name,
         array(
-            'user_id'    => $user_id,
-            'object_id'  => $challenge_id,
-            'local_date' => $today,
+            'user_id'      => $user_id,
+            'challenge_id' => $challenge_id,
+            'local_date'   => $today,
         ),
         array( '%d', '%d', '%s' )
     );
 
-    // في حال فشل الإدخال، يتم إرجاع سبب الخطأ الحقيقي من قاعدة البيانات مباشرة لمعرفته
+    // إذا فشل الإدخال، سنعيد رسالة الخطأ الحقيقية من قاعدة البيانات مباشرة
     if ( false === $inserted ) {
-        return new WP_Error( 'db_error', 'خطأ قاعدة البيانات: ' . $wpdb->last_error, array( 'status' => 400 ) );
+        return rest_ensure_response( array(
+            'success' => false,
+            'message' => 'خطأ قاعدة البيانات: ' . $wpdb->last_error,
+        ) );
     }
 
     return rest_ensure_response( array(

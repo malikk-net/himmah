@@ -22,13 +22,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 },
                 body: JSON.stringify({ challenge_id: challengeId })
             })
-            .then(response => response.json()) // استقبال JSON مباشرة
+            .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     currentButton.textContent = 'تم الإنجاز ✓';
                 } else {
-                    // سيظهر هنا نص الخطأ الدقيق القادم من الخادم أو قاعدة البيانات
-                    alert('خطأ: ' + (data.message || 'فشل التسجيل'));
+                    // سيظهر هنا نص خطأ قاعدة البيانات الحقيقي بوضوح تام
+                    alert('تنبيه: ' + (data.message || 'فشل التسجيل'));
                     currentButton.textContent = 'تسجيل';
                     currentButton.disabled = false;
                 }
