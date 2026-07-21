@@ -79,27 +79,28 @@ function himmah_handle_log_activity( WP_REST_Request $request ) {
             return new WP_Error( 'rest_invalid_param', 'معرف التحدي مفقود أو غير صالح', array( 'status' => 400 ) );
         }
 
-        // اسم الجدول الصحيح في قاعدة البيانات
         $table_name = $wpdb->prefix . 'himmah_activities';
+        $today      = current_time( 'Y-m-d' );
 
-        // التحقق من عدم تسجيل نفس التحدي مسبقاً في نفس اليوم
+        // التحقق من عدم تسجيل نفس التحدي مسبقاً في نفس اليوم باستخدام أعمدة الجدول الحقيقية
         $exists = $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM $table_name WHERE user_id = %d AND challenge_id = %d AND DATE(logged_at) = CURDATE()",
+            "SELECT COUNT(*) FROM $table_name WHERE user_id = %d AND object_id = %d AND local_date = %s",
             $user_id,
-            $challenge_id
+            $challenge_id,
+            $today
         ));
 
         if ( $exists > 0 ) {
             return new WP_Error( 'already_logged', 'لقد قمت بتسجيل هذا التحدي مسبقاً اليوم', array( 'status' => 400 ) );
         }
 
-        // إدخال السجل الجديد
+        // إدخال السجل باستخدام الأعمدة الصحيحة في جدول t02u_himmah_activities
         $inserted = $wpdb->insert(
             $table_name,
             array(
-                'user_id'      => $user_id,
-                'challenge_id' => $challenge_id,
-                'logged_at'    => current_time( 'mysql' ),
+                'user_id'    => $user_id,
+                'object_id'  => $challenge_id,
+                'local_date' => $today,
             ),
             array( '%d', '%d', '%s' )
         );
