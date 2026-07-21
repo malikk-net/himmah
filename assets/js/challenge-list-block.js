@@ -22,26 +22,20 @@ document.addEventListener('DOMContentLoaded', function () {
                 },
                 body: JSON.stringify({ challenge_id: challengeId })
             })
-            .then(response => response.text())
-            .then(text => {
-                try {
-                    const data = JSON.parse(text);
-                    if (data.success) {
-                        currentButton.textContent = 'تم الإنجاز ✓';
-                    } else {
-                        alert('تنبيه: ' + (data.message || 'فشل التسجيل'));
-                        currentButton.textContent = 'تسجيل';
-                        currentButton.disabled = false;
-                    }
-                } catch (err) {
-                    console.error("استجابة الخادم ليست JSON صالحاً:", text);
-                    alert("حدث خطأ برمجياً في الخادم.");
+            .then(response => response.json()) // استقبال JSON مباشرة
+            .then(data => {
+                if (data.success) {
+                    currentButton.textContent = 'تم الإنجاز ✓';
+                } else {
+                    // سيظهر هنا نص الخطأ الدقيق القادم من الخادم أو قاعدة البيانات
+                    alert('خطأ: ' + (data.message || 'فشل التسجيل'));
                     currentButton.textContent = 'تسجيل';
                     currentButton.disabled = false;
                 }
             })
             .catch(error => {
                 console.error('Fetch Error:', error);
+                alert('حدث خطأ في الاتصال بالخادم.');
                 currentButton.textContent = 'تسجيل';
                 currentButton.disabled = false;
             });

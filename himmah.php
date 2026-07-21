@@ -10,7 +10,7 @@
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
-	exit; // Exit if accessed directly
+    exit; // Exit if accessed directly
 }
 
 // 1. تعريف ثوابت الإضافة الرئيسية
@@ -21,24 +21,24 @@ define( 'HIMMAH_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
 // 2. المحمل التلقائي للكلاسات (Autoloader)
 if ( file_exists( HIMMAH_PLUGIN_DIR . 'vendor/autoload.php' ) ) {
-	require_once HIMMAH_PLUGIN_DIR . 'vendor/autoload.php';
+    require_once HIMMAH_PLUGIN_DIR . 'vendor/autoload.php';
 } else {
-	spl_autoload_register( function ( $class ) {
-		$prefix   = 'Himmah\\';
-		$base_dir = HIMMAH_PLUGIN_DIR . 'src/';
-		$len      = strlen( $prefix );
+    spl_autoload_register( function ( $class ) {
+        $prefix   = 'Himmah\\';
+        $base_dir = HIMMAH_PLUGIN_DIR . 'src/';
+        $len      = strlen( $prefix );
 
-		if ( strncmp( $prefix, $class, $len ) !== 0 ) {
-			return;
-		}
+        if ( strncmp( $prefix, $class, $len ) !== 0 ) {
+            return;
+        }
 
-		$relative_class = substr( $class, $len );
-		$file           = $base_dir . str_replace( '\\', '/', $relative_class ) . '.php';
+        $relative_class = substr( $class, $len );
+        $file           = $base_dir . str_replace( '\\', '/', $relative_class ) . '.php';
 
-		if ( file_exists( $file ) ) {
-			require_once $file;
-		}
-	} );
+        if ( file_exists( $file ) ) {
+            require_once $file;
+        }
+    } );
 }
 
 // 3. تضمين ملف التنصيب مباشرة لمنع أخطاء التفعيل الفادحة
@@ -49,10 +49,12 @@ register_activation_hook( __FILE__, array( 'Himmah\\Database\\Installer', 'run' 
 
 // 5. تشغيل الإضافة عند اكتمال تحميل ووردبريس
 add_action( 'plugins_loaded', function () {
-	if ( class_exists( 'Himmah\\Core\\Plugin' ) ) {
-		\Himmah\Core\Plugin::get_instance();
-	}
+    if ( class_exists( 'Himmah\\Core\\Plugin' ) ) {
+        \Himmah\Core\Plugin::get_instance();
+    }
 } );
+
+// 6. مسار الـ REST API لتسجيل التحديات
 add_action( 'rest_api_init', function () {
     register_rest_route( 'himmah/v1', '/log-activity', array(
         'methods'             => 'POST',
@@ -66,55 +68,51 @@ add_action( 'rest_api_init', function () {
 function himmah_handle_log_activity( WP_REST_Request $request ) {
     global $wpdb;
 
-    try {
-        $user_id = get_current_user_id();
-        if ( ! $user_id ) {
-            return new WP_Error( 'rest_not_logged_in', 'يجب تسجيل الدخول أولاً', array( 'status' => 401 ) );
-        }
-
-        $params       = $request->get_json_params();
-        $challenge_id = isset( $params['challenge_id'] ) ? intval( $params['challenge_id'] ) : 0;
-
-        if ( ! $challenge_id ) {
-            return new WP_Error( 'rest_invalid_param', 'معرف التحدي مفقود أو غير صالح', array( 'status' => 400 ) );
-        }
-
-        $table_name = $wpdb->prefix . 'himmah_activities';
-        $today      = current_time( 'Y-m-d' );
-
-        // التحقق من عدم تسجيل نفس التحدي مسبقاً في نفس اليوم باستخدام أعمدة الجدول الحقيقية
-        $exists = $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM $table_name WHERE user_id = %d AND object_id = %d AND local_date = %s",
-            $user_id,
-            $challenge_id,
-            $today
-        ));
-
-        if ( $exists > 0 ) {
-            return new WP_Error( 'already_logged', 'لقد قمت بتسجيل هذا التحدي مسبقاً اليوم', array( 'status' => 400 ) );
-        }
-
-        // إدخال السجل باستخدام الأعمدة الصحيحة في جدول t02u_himmah_activities
-        $inserted = $wpdb->insert(
-            $table_name,
-            array(
-                'user_id'    => $user_id,
-                'object_id'  => $challenge_id,
-                'local_date' => $today,
-            ),
-            array( '%d', '%d', '%s' )
-        );
-
-        if ( false === $inserted ) {
-            throw new Exception( 'خطأ في قاعدة البيانات: ' . $wpdb->last_error );
-        }
-
-        return rest_ensure_response( array(
-            'success' => true,
-            'message' => 'تم تسجيل الإنجاز بنجاح',
-        ) );
-
-    } catch ( Exception $e ) {
-        return new WP_Error( 'server_error', $e->getMessage(), array( 'status' => 500 ) );
+    $user_id = get_current_user_id();
+    if ( ! $user_id ) {
+        return new WP_Error( 'rest_not_logged_in', 'يجب تسجيل الدخول أولاً', array( 'status' => 401 ) );
     }
+
+    $params       = $request->get_json_params();
+    $challenge_id = isset( $params['challenge_id'] ) ? intval( $params['challenge_id'] ) : 0;
+
+    if ( ! $challenge_id ) {
+        return new WP_Error( 'rest_invalid_param', 'معرف التحدي مفقود أو غير صالح', array( 'status' => 400 ) );
+    }
+
+    $table_name = $wpdb->prefix . 'himmah_activities';
+    $today      = current_time( 'Y-m-d' );
+
+    // التحقق من عدم تسجيل نفس التحدي مسبقاً في نفس اليوم
+    $exists = $wpdb->get_var( $wpdb->prepare(
+        "SELECT COUNT(*) FROM $table_name WHERE user_id = %d AND object_id = %d AND local_date = %s",
+        $user_id,
+        $challenge_id,
+        $today
+    ));
+
+    if ( $exists > 0 ) {
+        return new WP_Error( 'already_logged', 'لقد قمت بتسجيل هذا التحدي مسبقاً اليوم', array( 'status' => 400 ) );
+    }
+
+    // إدخال السجل الجديد في الجدول
+    $inserted = $wpdb->insert(
+        $table_name,
+        array(
+            'user_id'    => $user_id,
+            'object_id'  => $challenge_id,
+            'local_date' => $today,
+        ),
+        array( '%d', '%d', '%s' )
+    );
+
+    // في حال فشل الإدخال، يتم إرجاع سبب الخطأ الحقيقي من قاعدة البيانات مباشرة لمعرفته
+    if ( false === $inserted ) {
+        return new WP_Error( 'db_error', 'خطأ قاعدة البيانات: ' . $wpdb->last_error, array( 'status' => 400 ) );
+    }
+
+    return rest_ensure_response( array(
+        'success' => true,
+        'message' => 'تم تسجيل الإنجاز بنجاح',
+    ) );
 }
