@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', function () {
-    // استخدام querySelectorAll للتعامل مع جميع أزرار التحديات في القائمة
     document.querySelectorAll('.himmah-record-btn').forEach(button => {
         button.addEventListener('click', function (e) {
             e.preventDefault();
@@ -12,7 +11,6 @@ document.addEventListener('DOMContentLoaded', function () {
             currentButton.textContent = 'جاري التسجيل...';
             currentButton.disabled = true;
 
-            // التأكد من توفر المتغيرات العامة (restUrl و nonce) عبر wp_localize_script
             const restUrl = typeof himmahData !== 'undefined' ? himmahData.restUrl : '/wp-json/himmah/v1/';
             const nonce = typeof himmahData !== 'undefined' ? himmahData.nonce : '';
 
@@ -37,9 +35,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 } catch (err) {
                     console.error("استجابة الخادم ليست JSON صالحاً:", text);
-                    alert("حدث خطأ برمجياً في الخادم (راجع Console لمزيد من التفاصيل).");
+                    alert("حدث خطأ برمجياً في الخادم.");
                     currentButton.textContent = 'تسجيل';
-                    currentButton.disabled.value = false;
                     currentButton.disabled = false;
                 }
             })

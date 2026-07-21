@@ -79,7 +79,8 @@ function himmah_handle_log_activity( WP_REST_Request $request ) {
             return new WP_Error( 'rest_invalid_param', 'معرف التحدي مفقود أو غير صالح', array( 'status' => 400 ) );
         }
 
-        $table_name = $wpdb->prefix . 'himmah_user_logs';
+        // اسم الجدول الصحيح في قاعدة البيانات
+        $table_name = $wpdb->prefix . 'himmah_activities';
 
         // التحقق من عدم تسجيل نفس التحدي مسبقاً في نفس اليوم
         $exists = $wpdb->get_var( $wpdb->prepare(
@@ -92,7 +93,7 @@ function himmah_handle_log_activity( WP_REST_Request $request ) {
             return new WP_Error( 'already_logged', 'لقد قمت بتسجيل هذا التحدي مسبقاً اليوم', array( 'status' => 400 ) );
         }
 
-        // إدخال السجل الجديد في قاعدة البيانات
+        // إدخال السجل الجديد
         $inserted = $wpdb->insert(
             $table_name,
             array(
